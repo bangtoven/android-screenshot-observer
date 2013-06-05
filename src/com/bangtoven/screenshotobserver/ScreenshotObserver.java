@@ -1,86 +1,65 @@
 package com.bangtoven.screenshotobserver;
 
 import java.io.File;
-import java.io.FileFilter;
 
 import android.net.Uri;
 import android.os.Environment;
-import android.os.Handler;
+import android.os.FileObserver;
 import android.util.Log;
 
-public class ScreenshotObserver {
-	static final String TAG = "ScreenshotObserver"; 
-	static final int INTERVAL = 1;
-	
-	private File mScreenshotFolder;
-	private long mLastModified;
-	
-	private Handler mHandler;
-	private Runnable mObserverThread;
-	private boolean mIsRunning;
+public class ScreenshotObserver extends FileObserver {
+	private static final String TAG = "ScreenshotObserver"; 
+	private static final String PATH = Environment.getExternalStorageDirectory().toString() + "/Pictures/Screenshots/";
 	
 	private OnScreenshotTakenListener mListener;
+	private String mLastTakenPath;
 	
 	public ScreenshotObserver(OnScreenshotTakenListener listener) {
+		super(PATH, FileObserver.CLOSE_WRITE);
 		mListener = listener;
-		
-		mScreenshotFolder = new File(Environment.getExternalStorageDirectory().toString() + "/Pictures/Screenshots");
-		mLastModified = mScreenshotFolder.lastModified();
-		
-		mIsRunning = false;
-		mHandler = new Handler();
-		mObserverThread = new Runnable() {
-			@Override 
-			public void run() {
-				if (mScreenshotFolder.lastModified() > mLastModified) {
-					Log.i(TAG,"Screenshot Taken.");
-					Uri uri = getLastScreenshotUri();
-					mListener.onScreenshotTaken(uri);
-					mIsRunning = false;
-				}
-				else if (mIsRunning) {
-					Log.i(TAG,"Running");
-					mHandler.postDelayed(mObserverThread, INTERVAL*1000);
-				}
-			}
-		};
 	}
-	
-	public boolean isRunning() {
-		return mIsRunning;
+
+	@Override
+	public void onEvent(int event, String path) {
+		Log.i(TAG, "Event:"+event+"\t"+path);
+		
+		if (path==null || event!=FileObserver.CLOSE_WRITE)
+			Log.i(TAG, "Don't care.");
+		else if (mLastTakenPath!=null && path.equalsIgnoreCase(mLastTakenPath))
+			Log.i(TAG, "This event has been observed before.");
+		else {
+			mLastTakenPath = path;
+			File file = new File(PATH+path);
+			mListener.onScreenshotTaken(Uri.fromFile(file));
+			Log.i(TAG, "Send event to listener.");
+		}
 	}
 	
 	public void start() {
-		if (mIsRunning == false) {
-			mIsRunning = true;
-			mLastModified = mScreenshotFolder.lastModified();
-			mHandler.post(mObserverThread);
-		}
-	}
-	
-	public void pause() {
-		mIsRunning = false;
+		super.startWatching();
 	}
 	
 	public void stop() {
-		mHandler.removeCallbacks(mObserverThread);
+		super.stopWatching();
 	}
 	
-	private Uri getLastScreenshotUri() {
-		File[] files = mScreenshotFolder.listFiles(new FileFilter() {			
-			public boolean accept(File file) {
-				return file.isFile();
-			}
-		});
-		long modifiedTime = Long.MIN_VALUE;
-		File lastScreenshot = null;
-		for (File file : files) {
-			if (file.lastModified() > modifiedTime) {
-				lastScreenshot = file;
-				modifiedTime = file.lastModified();
-			}
-		}
-		
-		return Uri.fromFile(lastScreenshot);
-	}
+
+	
+//	private Uri getLastScreenshotUri() {
+//		File[] files = mScreenshotFolder.listFiles(new FileFilter() {			
+//			public boolean accept(File file) {
+//				return file.isFile();
+//			}
+//		});
+//		long modifiedTime = Long.MIN_VALUE;
+//		File lastScreenshot = null;
+//		for (File file : files) {
+//			if (file.lastModified() > modifiedTime) {
+//				lastScreenshot = file;
+//				modifiedTime = file.lastModified();
+//			}
+//		}
+//		
+//		return Uri.fromFile(lastScreenshot);
+//	}
 }
