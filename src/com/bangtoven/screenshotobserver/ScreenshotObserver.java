@@ -2,6 +2,7 @@ package com.bangtoven.screenshotobserver;
 
 import java.io.File;
 
+import android.content.Context;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.FileObserver;
@@ -12,11 +13,18 @@ public class ScreenshotObserver extends FileObserver {
 	private static final String PATH = Environment.getExternalStorageDirectory().toString() + "/Pictures/Screenshots/";
 	
 	private OnScreenshotTakenListener mListener;
+	private Context mContext;
 	private String mLastTakenPath;
+	
 	
 	public ScreenshotObserver(OnScreenshotTakenListener listener) {
 		super(PATH, FileObserver.CLOSE_WRITE);
 		mListener = listener;
+	}
+	
+	public ScreenshotObserver(OnScreenshotTakenListener listener, Context context) {
+		this(listener);
+		mContext = context;
 	}
 
 	@Override
@@ -29,10 +37,18 @@ public class ScreenshotObserver extends FileObserver {
 			Log.i(TAG, "This event has been observed before.");
 		else {
 			mLastTakenPath = path;
-			File file = new File(PATH+path);
-			mListener.onScreenshotTaken(Uri.fromFile(file));
-			Log.i(TAG, "Send event to listener.");
+			this.onScreenshotTaken();
 		}
+	}
+	
+	private File getLastTakenFile() {
+		return new File(PATH+mLastTakenPath);
+	}
+	
+	private void onScreenshotTaken() {
+		File file = this.getLastTakenFile();
+		mListener.onScreenshotTaken(Uri.fromFile(file));
+		Log.i(TAG, "Send event to listener.");
 	}
 	
 	public void start() {
